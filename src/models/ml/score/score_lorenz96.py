@@ -15,7 +15,7 @@ class ScoreLorenz96(ScoreFramework):
 
     def __init__(
         self,
-        trainable_closure: SlidingWindowWrapper,
+        surrogate_model: SlidingWindowWrapper,
         mean: torch.Tensor,
         std: torch.Tensor,
         n_channels: int,
@@ -31,7 +31,7 @@ class ScoreLorenz96(ScoreFramework):
         )  # channel, time, space dims
 
         super().__init__(
-            trainable_closure=trainable_closure,
+            trainable_closure=surrogate_model,
             mean=mean.to(device=device, dtype=dtype),
             std=std.to(device=device, dtype=dtype),
             n_channels=n_channels,

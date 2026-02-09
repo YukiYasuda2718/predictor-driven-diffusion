@@ -18,13 +18,13 @@ class DatasetLorenz96(Dataset):
         min_data_idx: int,
         max_data_idx: int,
     ):
-        assert 0 <= min_data_idx <= max_data_idx
+        assert 0 <= min_data_idx < max_data_idx
 
         self.data = xr.load_dataarray(path_to_dataarray)
         assert self.data.dims == ("batch", "channel", "time", "space")
 
-        self.data = self.data.isel(batch=slice(min_data_idx, max_data_idx + 1))
-        assert self.data.shape[0] == max_data_idx - min_data_idx + 1
+        self.data = self.data.isel(batch=slice(min_data_idx, max_data_idx))
+        assert self.data.shape[0] == max_data_idx - min_data_idx
 
         self.n_batches, self.n_channels, self.n_times, self.n_spaces = self.data.shape
         logger.info(f"Data shape = {self.data.shape}\n")

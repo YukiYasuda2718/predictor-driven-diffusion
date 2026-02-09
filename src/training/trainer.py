@@ -9,8 +9,8 @@ import torch.nn as nn
 from torch.optim import Adam
 from torch.utils.data import Dataset
 
-from models.ml.diffusion.gaussian_diffusion import GaussianDiffusion
-from util.random_seed_helper import get_torch_generator, seed_worker
+from src.models.ml.diffusion.gaussian_diffusion import GaussianDiffusion
+from src.util.random_seed_helper import get_torch_generator, seed_worker
 
 from .ema import EMA
 

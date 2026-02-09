@@ -10,6 +10,7 @@ class Lorenz96UnetConfig(BaseConfig):
     mass_factor: float
     window_size: int
     noise_amplitude_squared: Optional[float]
+    seed: int
     #
     data_min_indices: dict[str, int] = dataclasses.field(
         default_factory=lambda: {"train": 0, "valid": 3000, "test": 3100}
@@ -18,7 +19,7 @@ class Lorenz96UnetConfig(BaseConfig):
         default_factory=lambda: {"train": 3000, "valid": 3100, "test": 3200}
     )
     data_dir_name: str = "lorenz96"
-    data_file_name: str = "lorenz96__K32J04_b10p0_c10p0_F10p0_sigma0p0.nc"
+    data_file_name: str = "lorenz96_K32J04_b10p0_c10p0_F10p0_sigma0p0.nc"
     n_spaces: int = 128
     means: list[float] = dataclasses.field(default_factory=lambda: [2.62, 0.0887])
     stds: list[float] = dataclasses.field(default_factory=lambda: [4.08, 0.261])
@@ -51,4 +52,3 @@ class Lorenz96UnetConfig(BaseConfig):
     ratio_value: float = 1.0
     #
     nn_name: str = "unet1d"
-    seed: int = 42

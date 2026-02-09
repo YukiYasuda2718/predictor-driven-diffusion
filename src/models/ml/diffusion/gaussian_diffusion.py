@@ -8,12 +8,8 @@ import torch
 import torch.nn.functional as F
 from torch import Tensor, nn
 
-from math_helper.ou import (
-    make_AB_t_matrix,
-    ou_spectrum_1d_eigenvalues,
-    ou_spectrum_2d_eigenvalues,
-)
-from models.ml.score.abstract_score import ScoreFramework
+from src.math_helper.ou import ou_spectrum_1d_eigenvalues, ou_spectrum_2d_eigenvalues
+from src.models.ml.score.abstract_score import ScoreFramework
 
 if "ipykernel" in sys.modules:
     from tqdm.notebook import tqdm
@@ -711,6 +707,4 @@ class GaussianDiffusion(nn.Module):
 
         t = torch.randint(0, self.num_timesteps, (b,), device=self.device).long()
 
-        _, losses = self._losses(x_0=x_flat, t=t)
-
-        return losses
+        return self._losses(x_0=x_flat, t=t)

@@ -4,7 +4,7 @@ from logging import getLogger
 import torch
 from torch import Tensor
 
-from models.ml.networks.sliding_window_wrapper import SlidingWindowWrapper
+from src.models.ml.networks.sliding_window_wrapper import SlidingWindowWrapper
 
 logger = getLogger(__name__)
 
