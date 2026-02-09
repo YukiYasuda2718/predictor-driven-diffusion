@@ -5,7 +5,7 @@ import torch
 from einops import rearrange
 from torch import nn
 
-from models.ml.networks.util.normalization import RMSNorm1D, RMSNorm2D
+from .normalization import RMSNorm1D, RMSNorm2D
 
 logger = getLogger(__name__)
 
