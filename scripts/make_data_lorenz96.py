@@ -2,7 +2,7 @@ import os
 import pathlib
 import sys
 from logging import INFO, StreamHandler, getLogger
-from typing import Literal, Optional
+from typing import Optional
 
 import numpy as np
 import torch
@@ -25,7 +25,7 @@ os.makedirs(out_dir, exist_ok=True)
 
 
 all_batches = 4_000
-n_batches = 1_000
+n_mini_batches = 1_000
 
 h = 1.0
 dt = 0.0005
@@ -39,7 +39,7 @@ device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("
 dtype = torch.float32
 seed = 42
 
-assert all_batches % n_batches == 0
+assert all_batches % n_mini_batches == 0
 
 
 def generate_data(
@@ -48,7 +48,7 @@ def generate_data(
 
     n_spaces = K * J
 
-    X = torch.rand(n_batches, n_spaces, dtype=dtype, device=device)
+    X = torch.rand(n_mini_batches, n_spaces, dtype=dtype, device=device)
     Y = torch.rand_like(X)
 
     if sigma == 0.0:
@@ -67,7 +67,7 @@ def generate_data(
         steps=steps,
     )
 
-    assert alls.shape == (n_batches, n_channels, steps + 1, n_spaces)
+    assert alls.shape == (n_mini_batches, n_channels, steps + 1, n_spaces)
 
     return (
         alls[:, :, -(out_n_times * out_time_interval) :: out_time_interval, :]
@@ -112,7 +112,6 @@ def make_dataarray(
             "c": c,
             "dt": dt,
             "steps": steps,
-            "agg_mode": agg_mode,
             "seed": seed,
             "sigma": sigma,
         },
@@ -143,7 +142,7 @@ if __name__ == "__main__":
         set_seeds(seed)
 
         results = []
-        for _ in tqdm(range(all_batches // n_batches)):
+        for _ in tqdm(range(all_batches // n_mini_batches)):
             result = generate_data(K=K, J=J, F=F, b=b, c=c, sigma=sigma)
             assert torch.all(~torch.isnan(result)).item()
             assert torch.all(torch.isfinite(result)).item()
