@@ -47,5 +47,3 @@ RUN curl -sSL https://install.python-poetry.org | POETRY_VERSION=${POETRY_VERSIO
     && cd /workspace/docker \
     && poetry install --no-root \
     && rm -rf /root/.cache/pip /root/.cache/pypoetry
-
-COPY known_hosts /root/.ssh/known_hosts
