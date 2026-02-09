@@ -1,8 +1,9 @@
 import typing
-from math.abstract_fft import AbstractFftCalculator
 
 import numpy as np
 import torch
+
+from .abstract_fft import AbstractFftCalculator
 
 
 def get_wavenumber(idx: int, total_num: int) -> int:

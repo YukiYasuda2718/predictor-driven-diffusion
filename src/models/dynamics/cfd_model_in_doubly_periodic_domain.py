@@ -1,13 +1,17 @@
 import sys
 import typing
 from logging import getLogger
-from math.fft_in_doubly_periodic_domain import NumpyFftCalculator, TorchFftCalculator
-from math.time_integration import runge_kutta_2nd_order
 
 import numpy as np
 import torch
 
-from models.dynamics.abstract_cfd_model import AbstractCfdModel
+from src.math.fft_in_doubly_periodic_domain import (
+    NumpyFftCalculator,
+    TorchFftCalculator,
+)
+from src.math.time_integration import runge_kutta_2nd_order
+
+from .abstract_cfd_model import AbstractCfdModel
 
 if "ipykernel" in sys.modules:
     from tqdm.notebook import tqdm
