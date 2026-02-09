@@ -1,14 +1,10 @@
-from typing import Any, Iterator, List, Optional, Tuple, Union
+from typing import Any, List, Optional, Tuple, Union
 
 import torch
 
 
 def exists(x: Any) -> bool:
     return x is not None
-
-
-def noop(*args: Any, **kwargs: Any) -> None:
-    pass
 
 
 def is_odd(n: int) -> bool:
@@ -19,12 +15,6 @@ def default(val: Optional[Any], d: Any) -> Any:
     if exists(val):
         return val
     return d() if callable(d) else d
-
-
-def cycle(dl: Any) -> Iterator[Any]:
-    while True:
-        for data in dl:
-            yield data
 
 
 def num_to_groups(num: int, divisor: int) -> List[int]:
