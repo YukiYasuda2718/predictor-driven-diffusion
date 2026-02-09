@@ -1,3 +1,6 @@
+# Ignore all binary data
+data
+
 # for VS code
 .dotnet
 .ssh
