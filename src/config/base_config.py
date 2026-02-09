@@ -7,7 +7,7 @@ import yaml
 
 
 @dataclasses.dataclass
-class YamlConfig:
+class BaseConfig:
     def to_json_str(self, indent: int = 2) -> str:
         return json.dumps(dataclasses.asdict(self), indent=indent)
 
@@ -28,7 +28,7 @@ class YamlConfig:
         def convert_from_dict(parent_cls, data):
             for key, val in data.items():
                 child_class = parent_cls.__dataclass_fields__[key].type
-                if inspect.isclass(child_class) and issubclass(child_class, YamlConfig):
+                if inspect.isclass(child_class) and issubclass(child_class, BaseConfig):
                     data[key] = child_class(**convert_from_dict(child_class, val))
             return data
 
