@@ -5,11 +5,11 @@ from logging import getLogger
 import numpy as np
 import torch
 
-from src.math.fft_in_doubly_periodic_domain import (
+from src.math_helper.fft_in_doubly_periodic_domain import (
     NumpyFftCalculator,
     TorchFftCalculator,
 )
-from src.math.time_integration import runge_kutta_2nd_order
+from src.math_helper.time_integration import runge_kutta_2nd_order
 
 from .abstract_cfd_model import AbstractCfdModel
 
