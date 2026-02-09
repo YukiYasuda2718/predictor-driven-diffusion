@@ -82,19 +82,13 @@ class GaussianDiffusion(nn.Module):
 
     def _set_params(self):
 
-        def reg(name: str, val: Tensor):
-            self.register_buffer(name, val.to(dtype=self.dtype, device=self.device))
-
         dt = 1.0 / self.num_timesteps
         ts = np.linspace(
             0.0, 1.0, self.num_timesteps + 1, dtype=np.float64, endpoint=True
         )
 
         self.dt = dt
-        reg("ts", torch.from_numpy(ts[1:]))  # skip t == 0
 
-        # Coefficient for Winner process, b x dW
-        # Variance-preserving SDE is assumed for the zero laplacian case.
         self.b = math.sqrt(2.0 * self.mass_factor)
         self.b2 = self.b**2
 
@@ -361,37 +355,40 @@ class GaussianDiffusion(nn.Module):
 
             return x_t, A_hats, B_hats
 
-        # ---- 2D: fft2 backend ----
-        # x_0, noise: (B, C, F, L)
-        B, C, F, L = x_0.shape
-        assert L == self.image_size_x * self.image_size_y
-        assert noise.shape == (B, C, F, L)
+        elif self.spatial_dimension == "2d":
+            # x_0, noise: (B, C, F, L)
+            B, C, F, L = x_0.shape
+            assert L == self.image_size_x * self.image_size_y
+            assert noise.shape == (B, C, F, L)
 
-        # (B, C, F, L) -> (B, C, F, Ny, Nx)
-        x0_2d = self._2d_view(x_0)
-        noise_2d = self._2d_view(noise)
+            # (B, C, F, L) -> (B, C, F, Ny, Nx)
+            x0_2d = self._2d_view(x_0)
+            noise_2d = self._2d_view(noise)
 
-        # FFT2
-        x0_hat = torch.fft.fft2(x0_2d, dim=(-2, -1), norm="ortho")  # complex
-        noise_hat = torch.fft.fft2(noise_2d, dim=(-2, -1), norm="ortho")
+            # FFT2
+            x0_hat = torch.fft.fft2(x0_2d, dim=(-2, -1), norm="ortho")  # complex
+            noise_hat = torch.fft.fft2(noise_2d, dim=(-2, -1), norm="ortho")
 
-        A_hats = self._extract_spectral_params(self.A_hat_t, t)  # (B, Ny, Nx)
-        B_hats = self._extract_spectral_params(self.B_hat_t, t)  # (B, Ny, Nx)
+            A_hats = self._extract_spectral_params(self.A_hat_t, t)  # (B, Ny, Nx)
+            B_hats = self._extract_spectral_params(self.B_hat_t, t)  # (B, Ny, Nx)
 
-        # broadcast: (B,1,1,Ny,Nx) * (B,C,F,Ny,Nx)
-        A_hats_bc = A_hats[:, None, None, :, :]
-        B_hats_bc = B_hats[:, None, None, :, :]
+            # broadcast: (B,1,1,Ny,Nx) * (B,C,F,Ny,Nx)
+            A_hats_bc = A_hats[:, None, None, :, :]
+            B_hats_bc = B_hats[:, None, None, :, :]
 
-        a_hat = A_hats_bc * x0_hat
-        b_hat = B_hats_bc * noise_hat
+            a_hat = A_hats_bc * x0_hat
+            b_hat = B_hats_bc * noise_hat
 
-        x_t_2d = torch.fft.ifft2(
-            a_hat + b_hat, dim=(-2, -1), norm="ortho"
-        ).real  # (B,C,F,Ny,Nx)
+            x_t_2d = torch.fft.ifft2(
+                a_hat + b_hat, dim=(-2, -1), norm="ortho"
+            ).real  # (B,C,F,Ny,Nx)
 
-        x_t = x_t_2d.view(B, C, F, L)
+            x_t = x_t_2d.view(B, C, F, L)
 
-        return x_t, A_hats, B_hats
+            return x_t, A_hats, B_hats
+
+        else:
+            raise NotImplementedError()
 
     def _noise(self, shape) -> Tensor:
         if self.noise_type == "white":
@@ -402,7 +399,7 @@ class GaussianDiffusion(nn.Module):
         else:
             raise NotImplementedError()
 
-    def _losses(self, x_0: Tensor, t: Tensor) -> tuple[Tensor, Tensor]:
+    def _losses(self, x_0: Tensor, t: Tensor) -> Tensor:
         #
         noise = self._noise(x_0.shape)
         x_t, _, _ = self._calc_q_samples(x_0=x_0, t=t, noise=noise)
@@ -461,31 +458,37 @@ class GaussianDiffusion(nn.Module):
                 mean = torch.fft.ifft(mean_hat, dim=-1, norm="ortho").real  # (B,C,F,L)
                 return mean
 
-            # 2D FFT backend
-            assert self.spatial_dimension == "2d"
-            B, C, F, L = x_t.shape
-            assert L == self.image_size_y * self.image_size_x
+            elif self.spatial_dimension == "2d":
 
-            x_2d = self._2d_view(x_t)  # (B,C,F,Ny,Nx)
-            score_2d = self._2d_view(score)  # (B,C,F,Ny,Nx)
+                assert self.spatial_dimension == "2d"
+                B, C, F, L = x_t.shape
+                assert L == self.image_size_y * self.image_size_x
 
-            x_hat = torch.fft.fft2(x_2d, dim=(-2, -1), norm="ortho")  # (B,C,F,Ny,Nx)
-            score_hat = torch.fft.fft2(score_2d, dim=(-2, -1), norm="ortho")
+                x_2d = self._2d_view(x_t)  # (B,C,F,Ny,Nx)
+                score_2d = self._2d_view(score)  # (B,C,F,Ny,Nx)
 
-            A_step = self.back_sde_A_step_2d  # (Ny,Nx)
-            phi1 = self.back_sde_phi1_2d  # (Ny,Nx)
+                x_hat = torch.fft.fft2(
+                    x_2d, dim=(-2, -1), norm="ortho"
+                )  # (B,C,F,Ny,Nx)
+                score_hat = torch.fft.fft2(score_2d, dim=(-2, -1), norm="ortho")
 
-            A_bc = A_step[None, None, None, :, :]  # (1,1,1,Ny,Nx)
-            phi_bc = phi1[None, None, None, :, :]
+                A_step = self.back_sde_A_step_2d  # (Ny,Nx)
+                phi1 = self.back_sde_phi1_2d  # (Ny,Nx)
 
-            x_lin_hat = A_bc * x_hat
-            score_contrib_hat = dt * b2 * phi_bc * score_hat
+                A_bc = A_step[None, None, None, :, :]  # (1,1,1,Ny,Nx)
+                phi_bc = phi1[None, None, None, :, :]
 
-            mean_hat = x_lin_hat + score_contrib_hat
-            mean_2d = torch.fft.ifft2(mean_hat, dim=(-2, -1), norm="ortho").real
-            mean = mean_2d.view(B, C, F, L)
+                x_lin_hat = A_bc * x_hat
+                score_contrib_hat = dt * b2 * phi_bc * score_hat
 
-            return mean
+                mean_hat = x_lin_hat + score_contrib_hat
+                mean_2d = torch.fft.ifft2(mean_hat, dim=(-2, -1), norm="ortho").real
+                mean = mean_2d.view(B, C, F, L)
+
+                return mean
+
+            else:
+                raise NotImplementedError()
 
     def _corrector_step(self, x_t: Tensor, t: Tensor, corrector_snr: float) -> Tensor:
 
@@ -513,6 +516,7 @@ class GaussianDiffusion(nn.Module):
             x = means + mask * torch.sqrt(2.0 * alpha) * noise
             x = self._remove_constant(x)
 
+            # \pm 3 corresponds to 3 sigma for normal distributions
             return torch.clamp(x, min=-3, max=3)
 
     def _sample_from_p(
@@ -536,6 +540,7 @@ class GaussianDiffusion(nn.Module):
             x = means + mask * b_dW
             x = self._remove_constant(x)
             x = torch.clamp(x, min=-3, max=3)
+            # \pm 3 corresponds to 3 sigma for normal distributions
 
         if num_corrector_steps > 0:
             for _ in range(num_corrector_steps):
@@ -603,12 +608,7 @@ class GaussianDiffusion(nn.Module):
 
         noise = self._noise(shape)
 
-        if self.spatial_dimension == "1d" and self.ou_backend_1d == "dense":
-            last_B = self._extract_matrix_params(self.B_t, last_index)
-            assert last_B.shape == (n_batches, self.image_size, self.image_size)
-            img = torch.einsum("bij,bcfj->bcfi", last_B, noise)
-
-        elif self.spatial_dimension == "1d" and self.ou_backend_1d == "fft":
+        if self.spatial_dimension == "1d":
             B, C, F, L = noise.shape
             assert L == self.image_size
             noise_hat = torch.fft.fft(noise, dim=-1, norm="ortho")
@@ -619,7 +619,7 @@ class GaussianDiffusion(nn.Module):
             img_hat = B_bc * noise_hat
             img = torch.fft.ifft(img_hat, dim=-1, norm="ortho").real
 
-        else:
+        elif self.spatial_dimension == "2d":
             # 2D: fft2 backend
             B, C, F, L = noise.shape
             assert self.image_size_y * self.image_size_x == L
@@ -629,7 +629,6 @@ class GaussianDiffusion(nn.Module):
                 noise_2d, dim=(-2, -1), norm="ortho"
             )  # (B, C, F, Ny, Nx)
 
-            # B_hat_t から最後の時刻のスペクトル係数を取り出す
             B_hats = self._extract_spectral_params(
                 self.B_hat_t, last_index
             )  # (B, Ny, Nx)
@@ -642,6 +641,9 @@ class GaussianDiffusion(nn.Module):
 
             img = img_2d.view(B, C, F, L)
             img = self._remove_constant(img)
+
+        else:
+            raise NotImplementedError()
 
         return self._p_loop(
             n_timesteps=self.num_timesteps,
@@ -659,9 +661,11 @@ class GaussianDiffusion(nn.Module):
 
         if self.spatial_dimension == "1d":
             L = self.image_size
-        else:
+        elif self.spatial_dimension == "2d":
             assert self.image_size_x is not None and self.image_size_y is not None
             L = self.image_size_x * self.image_size_y
+        else:
+            raise NotImplementedError()
 
         shape = (batch_size, self.channels, self.num_frames, L)
 
@@ -676,13 +680,17 @@ class GaussianDiffusion(nn.Module):
         if self.spatial_dimension == "1d":
             return out
 
-        reshaped: dict[int, torch.Tensor] = {}
-        for k, v in out.items():
-            B, C, F, L_flat = v.shape
-            assert L_flat == self.image_size_y * self.image_size_x
-            reshaped[k] = self._2d_view(v)
+        elif self.spatial_dimension == "2d":
+            reshaped: dict[int, torch.Tensor] = {}
+            for k, v in out.items():
+                B, C, F, L_flat = v.shape
+                assert L_flat == self.image_size_y * self.image_size_x
+                reshaped[k] = self._2d_view(v)
 
-        return reshaped
+            return reshaped
+
+        else:
+            raise NotImplementedError()
 
     def forward(self, x_0: torch.Tensor, **kwargs) -> Tensor:
 
