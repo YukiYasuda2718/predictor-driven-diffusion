@@ -49,6 +49,9 @@ def run_simulation(
 
     batched = torch.stack([dataset[i] for i in range(n_batches)], dim=0)
     x_0 = copy.deepcopy(batched).to(device)
+    if isinstance(config, KolmogorovFlowUnetConfig):
+        b, c, t, _, _ = x_0.shape
+        x_0 = x_0.contiguous().view(b, c, t, -1)
     time = torch.ones((n_batches,), dtype=torch.long, device=device) * diffusion_index
     zeros = torch.zeros_like(x_0)
     x_t, _, _ = diffusion._calc_q_samples(x_0, time, noise=zeros)
@@ -183,7 +186,6 @@ def _extract_previous_states(
     # shape = (B, C, T, L)
 
     n_batches, n_channels, n_spaces = snaps[0].shape
-    assert n_channels == 2
     assert prevs.shape == (n_batches, n_channels, window_size, n_spaces)
 
     return prevs
