@@ -1,0 +1,50 @@
+F: 10.0
+J: 4
+K: 32
+att_block_indices:
+- 4
+b: 10.0
+c: 10.0
+data_dir_name: lorenz96
+data_file_name: lorenz96_K32J04_b10p0_c10p0_F10p0_sigma0p0.nc
+data_max_indices:
+  test: 3200
+  train: 3000
+  valid: 3100
+data_min_indices:
+  test: 3100
+  train: 0
+  valid: 3000
+dim: 32
+dim_mults:
+- 1
+- 2
+- 4
+- 4
+- 6
+laplacian_factor: 0.1
+mass_factor: 0.0
+means:
+- 2.62
+- 0.0887
+missing_value: 0.0
+n_spaces: 128
+nn_name: unet1d
+noise_amplitude_squared: 2.0
+noise_type: white
+num_timesteps: 1000
+ratio_value: 1.0
+save_and_sample_every: 2000
+seed: 771155
+std_ratio: 1.0
+stds:
+- 4.08
+- 0.261
+step_start_ema: 999999
+time_base: 1000.0
+train_batch_size: 50
+train_lr: 0.0002
+train_num_steps: 30001
+update_ema_every: 999999
+use_ratio: false
+window_size: 5

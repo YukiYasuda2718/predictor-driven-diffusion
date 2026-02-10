@@ -1,0 +1,42 @@
+att_block_indices:
+- 3
+data_dir_name: kolmogorov_flow
+data_max_indices:
+  test: 62
+  train: 60
+  valid: 61
+data_min_indices:
+  test: 62
+  train: 1
+  valid: 61
+dim: 32
+dim_mults:
+- 1
+- 2
+- 4
+- 6
+init_kernel_size: 5
+laplacian_factor: 0.3
+mass_factor: 0.0
+mean: -0.0304
+missing_value: 0.0
+nn_name: unet2d
+noise_amplitude_squared: 2.0
+noise_type: white
+nt: 40
+num_timesteps: 1000
+nx: 40
+ny: 40
+ratio_value: 1.0
+save_and_sample_every: 2000
+seed: 465838
+std: 4.58
+std_ratio: 1.0
+step_start_ema: 999999
+time_base: 1000.0
+train_batch_size: 40
+train_lr: 0.0002
+train_num_steps: 30001
+update_ema_every: 999999
+use_ratio: false
+window_size: 5
