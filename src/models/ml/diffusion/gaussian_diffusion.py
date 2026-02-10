@@ -578,7 +578,7 @@ class GaussianDiffusion(nn.Module):
         intermediates: dict[int, torch.Tensor] = {}
         intermediates[n_timesteps - 1] = img.cpu().detach().clone()
 
-        for t in tqdm(reversed(range(2, n_timesteps)), total=n_timesteps):
+        for t in tqdm(reversed(range(2, n_timesteps)), total=n_timesteps - 2):
             img = self._sample_from_p(
                 x_t=img,
                 t=torch.full((n_batches,), t, device=self.device, dtype=torch.long),
