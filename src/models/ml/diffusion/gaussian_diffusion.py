@@ -288,19 +288,6 @@ class GaussianDiffusion(nn.Module):
             back_sde_phi1_2d.to(device=self.device, dtype=self.dtype),
         )  # size = (Ny, Nx)
 
-    def _extract_matrix_params(self, matrix_params: Tensor, t: Tensor) -> Tensor:
-
-        def select(arry):
-            return torch.index_select(arry, dim=0, index=t)
-            # Select diffusion times along batch dim
-
-        (n_batches,) = t.shape
-
-        selected = select(matrix_params)
-        assert selected.shape == (n_batches, self.image_size, self.image_size)
-
-        return selected.requires_grad_(False)
-
     def _extract_params(self, params: Tensor, t: Tensor) -> Tensor:
 
         def select(arry):
@@ -314,7 +301,7 @@ class GaussianDiffusion(nn.Module):
 
         return selected.requires_grad_(False)
 
-    def _extract_spectral_params(self, spectral_params: Tensor, t: Tensor) -> Tensor:
+    def _extract_spectral_params_2d(self, spectral_params: Tensor, t: Tensor) -> Tensor:
         (n_batches,) = t.shape
         selected = torch.index_select(spectral_params, dim=0, index=t)
         assert selected.shape == (n_batches, self.image_size_y, self.image_size_x)
@@ -369,8 +356,8 @@ class GaussianDiffusion(nn.Module):
             x0_hat = torch.fft.fft2(x0_2d, dim=(-2, -1), norm="ortho")  # complex
             noise_hat = torch.fft.fft2(noise_2d, dim=(-2, -1), norm="ortho")
 
-            A_hats = self._extract_spectral_params(self.A_hat_t, t)  # (B, Ny, Nx)
-            B_hats = self._extract_spectral_params(self.B_hat_t, t)  # (B, Ny, Nx)
+            A_hats = self._extract_spectral_params_2d(self.A_hat_t, t)  # (B, Ny, Nx)
+            B_hats = self._extract_spectral_params_2d(self.B_hat_t, t)  # (B, Ny, Nx)
 
             # broadcast: (B,1,1,Ny,Nx) * (B,C,F,Ny,Nx)
             A_hats_bc = A_hats[:, None, None, :, :]
@@ -618,6 +605,7 @@ class GaussianDiffusion(nn.Module):
             B_bc = B_hats[:, None, None, :]  # (B,1,1,L)
             img_hat = B_bc * noise_hat
             img = torch.fft.ifft(img_hat, dim=-1, norm="ortho").real
+            img = self._remove_constant(img)
 
         elif self.spatial_dimension == "2d":
             # 2D: fft2 backend
@@ -629,7 +617,7 @@ class GaussianDiffusion(nn.Module):
                 noise_2d, dim=(-2, -1), norm="ortho"
             )  # (B, C, F, Ny, Nx)
 
-            B_hats = self._extract_spectral_params(
+            B_hats = self._extract_spectral_params_2d(
                 self.B_hat_t, last_index
             )  # (B, Ny, Nx)
             B_hats_bc = B_hats[:, None, None, :, :]  # (B, 1, 1, Ny, Nx)
