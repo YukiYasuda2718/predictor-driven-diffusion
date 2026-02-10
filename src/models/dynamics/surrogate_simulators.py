@@ -8,7 +8,9 @@ import numpy as np
 import torch
 from torch import Tensor
 
+from src.configs.kolmogorov_flow_config import KolmogorovFlowUnetConfig
 from src.configs.lorenz96_config import Lorenz96UnetConfig
+from src.datasets.dataset_kolmogorov_flow import DatasetKolmogorovFlow
 from src.datasets.dataset_lorenz96 import DatasetLorenz96
 from src.models.ml.diffusion.gaussian_diffusion import GaussianDiffusion
 from src.models.ml.networks.sliding_window_wrapper import SlidingWindowWrapper
@@ -26,8 +28,8 @@ logger = getLogger()
 def run_simulation(
     *,
     trainer: Trainer,
-    dataset: DatasetLorenz96,
-    config: Lorenz96UnetConfig,
+    dataset: DatasetLorenz96 | DatasetKolmogorovFlow,
+    config: Lorenz96UnetConfig | KolmogorovFlowUnetConfig,
     n_batches: int,
     diffusion_index: int,
     dt: float,
@@ -37,6 +39,10 @@ def run_simulation(
 ):
     if isinstance(config, Lorenz96UnetConfig):
         assert isinstance(dataset, DatasetLorenz96)
+    elif isinstance(config, KolmogorovFlowUnetConfig):
+        assert isinstance(dataset, DatasetKolmogorovFlow)
+    else:
+        raise ValueError()
 
     diffusion: GaussianDiffusion = trainer.model
     score: ScoreFramework = diffusion.noise_estimate_fn
@@ -76,6 +82,12 @@ def run_simulation(
     )
     ret = results.detach().clone().cpu().numpy()
 
+    if isinstance(config, KolmogorovFlowUnetConfig):
+        b, c, t, _ = ground_truth.shape
+        ground_truth = ground_truth.reshape(b, c, t, config.ny, config.nx)
+        b, c, t, _ = ret.shape
+        ret = ret.reshape(b, c, t, config.ny, config.nx)
+
     return ground_truth, ret
 
 
@@ -92,9 +104,9 @@ def _run_simulation(
     x0: Tensor,
     steps: int,
     dt: float,
-    sigma: Optional[Tensor | float],
-    mean: Tensor | float,
-    std: Tensor | float,
+    sigma: Optional[Tensor],
+    mean: Tensor,
+    std: Tensor,
     surrogate_model: SlidingWindowWrapper,
     diffusion_times: Tensor,
     disable_tqdm: bool = False,
@@ -116,7 +128,7 @@ def _run_simulation(
                 dtype=dtype,
                 device=device,
             )
-            * (sigma[None, :, None, None] if isinstance(sigma, Tensor) else sigma)
+            * (sigma[None, :, None, None] if sigma.ndim > 0 else sigma)
             * math.sqrt(float(dt))
         )
 
@@ -181,8 +193,8 @@ def _calc_time_tendency(
     closure: torch.nn.Module,
     states: Tensor,
     diffusion_times: Tensor,
-    mean: Tensor | float,
-    std: Tensor | float,
+    mean: Tensor,
+    std: Tensor,
     dt: float,
 ) -> Tensor:
     #
@@ -193,9 +205,9 @@ def _calc_time_tendency(
         assert mean.shape == std.shape == (C,)
 
     states_dimensionless = states.clone().detach()
-    m = mean[None, :, None, None] if isinstance(mean, Tensor) else mean
+    m = mean[None, :, None, None] if mean.ndim > 0 else mean
     states_dimensionless = states_dimensionless - m
-    s = std[None, :, None, None] if isinstance(std, Tensor) else std
+    s = std[None, :, None, None] if std.ndim > 0 else std
     states_dimensionless = states_dimensionless / s
 
     with torch.inference_mode():
@@ -204,8 +216,5 @@ def _calc_time_tendency(
     cls_term = cls_term[:, :, -1, :].detach().clone()  # take last time step
     assert cls_term.shape == (B, C, L)
 
-    s = std[None, :, None] if isinstance(std, Tensor) else std
-    return cls_term * s / dt  # dimensionalized
-    return cls_term * s / dt  # dimensionalized
-    return cls_term * s / dt  # dimensionalized
+    s = std[None, :, None] if std.ndim > 0 else std
     return cls_term * s / dt  # dimensionalized
