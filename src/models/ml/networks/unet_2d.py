@@ -5,18 +5,18 @@ from typing import Callable, Iterable, List, Literal, Optional, Sequence
 import torch
 from torch import nn
 
-from models.ml.networks.util.attention import Attention, Spatial2DLinearAttention
-from models.ml.networks.util.basics import default, is_odd
-from models.ml.networks.util.blocks import (
+from src.models.ml.networks.util.attention import Attention, Spatial2DLinearAttention
+from src.models.ml.networks.util.basics import default, is_odd
+from src.models.ml.networks.util.blocks import (
     Downsample2D,
     Residual,
     ResnetBlock2D,
     SinusoidalPosEmb,
     Upsample2D,
 )
-from models.ml.networks.util.einops_helpers import EinopsToAndFrom
-from models.ml.networks.util.normalization import PreNorm1D, PreNorm2D
-from models.ml.networks.util.periodic_conv import (
+from src.models.ml.networks.util.einops_helpers import EinopsToAndFrom
+from src.models.ml.networks.util.normalization import PreNorm1D, PreNorm2D
+from src.models.ml.networks.util.periodic_conv import (
     PeriodicDownsample2D,
     PeriodicUpsampleConv2d,
 )
