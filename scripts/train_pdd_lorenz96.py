@@ -21,7 +21,6 @@ from src.training.loss_logger import LossLogger
 from src.training.trainer import Trainer
 from src.util.random_seed_helper import set_seeds
 
-# These constants are passed from scripts.make_dl_data_v09
 N_FRAMES = out_n_times
 BARE_DT = dt
 DT = dt * out_time_interval
