@@ -30,7 +30,7 @@ means:
 missing_value: 0.0
 n_spaces: 128
 nn_name: unet1d
-noise_amplitude_squared: 6.0
+noise_amplitude_squared: 2.0
 noise_type: white
 num_timesteps: 1000
 ratio_value: 1.0
