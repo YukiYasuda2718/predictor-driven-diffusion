@@ -501,7 +501,6 @@ class GaussianDiffusion(nn.Module):
             mask = (1 - (t <= 2).float()).reshape(batches, *((1,) * (x_t.ndim - 1)))
 
             x = means + mask * torch.sqrt(2.0 * alpha) * noise
-            x = self._remove_constant(x)
 
             # \pm 3 corresponds to 3 sigma for normal distributions
             return torch.clamp(x, min=-3, max=3)
@@ -525,7 +524,6 @@ class GaussianDiffusion(nn.Module):
             mask = (1 - (t <= 2).float()).reshape(n_batches, *((1,) * (x_t.ndim - 1)))
 
             x = means + mask * b_dW
-            x = self._remove_constant(x)
             x = torch.clamp(x, min=-3, max=3)
             # \pm 3 corresponds to 3 sigma for normal distributions
 
@@ -534,10 +532,6 @@ class GaussianDiffusion(nn.Module):
                 x = self._corrector_step(x_t=x, t=t, corrector_snr=corrector_snr)
 
         return x
-
-    def _remove_constant(self, x: Tensor) -> Tensor:
-        assert x.ndim == 4
-        return x - torch.mean(x, dim=(2, 3), keepdim=True)
 
     @torch.inference_mode()
     def _extrapolate_frames(self, arr: torch.Tensor):
@@ -605,7 +599,6 @@ class GaussianDiffusion(nn.Module):
             B_bc = B_hats[:, None, None, :]  # (B,1,1,L)
             img_hat = B_bc * noise_hat
             img = torch.fft.ifft(img_hat, dim=-1, norm="ortho").real
-            img = self._remove_constant(img)
 
         elif self.spatial_dimension == "2d":
             # 2D: fft2 backend
@@ -628,7 +621,6 @@ class GaussianDiffusion(nn.Module):
             ).real  # (B, C, F, Ny, Nx)
 
             img = img_2d.view(B, C, F, L)
-            img = self._remove_constant(img)
 
         else:
             raise NotImplementedError()
