@@ -29,7 +29,7 @@ nx: 40
 ny: 40
 ratio_value: 1.0
 save_and_sample_every: 2000
-seed: 465838
+seed: 221958
 std: 4.58
 std_ratio: 1.0
 step_start_ema: 999999
