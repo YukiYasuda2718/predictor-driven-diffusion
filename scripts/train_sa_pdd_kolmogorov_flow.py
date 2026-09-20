@@ -32,7 +32,7 @@ os.environ["CUBLAS_WORKSPACE_CONFIG"] = r":4096:8"  # to make calculations deter
 
 ROOT_DIR = pathlib.Path(os.environ["PYTHONPATH"].split(":")[0]).resolve()
 
-DL_EXPERIMENT_DIR_PATH = f"{ROOT_DIR}/data/DL_model/kolmogorov_flow_sa_pdd"
+DL_EXPERIMENT_DIR_PATH = f"{ROOT_DIR}/data/DL_model/kolmogorov_flow"
 
 logger = getLogger()
 logger.setLevel(INFO)
