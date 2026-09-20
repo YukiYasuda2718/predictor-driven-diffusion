@@ -38,12 +38,12 @@ RUN mkdir -p /workspace/tmp \
     && ./aws/install \
     && rm -rf /workspace/tmp
 
-COPY poetry.lock pyproject.toml /workspace/docker/
+COPY poetry.lock pyproject.toml /workspace/
 
 RUN curl -sSL https://install.python-poetry.org | POETRY_VERSION=${POETRY_VERSION} python3 - \
     && cd /usr/local/bin \
     && ln -s /opt/poetry/bin/poetry \
     && poetry config virtualenvs.create false \
-    && cd /workspace/docker \
+    && cd /workspace \
     && poetry install --no-root \
     && rm -rf /root/.cache/pip /root/.cache/pypoetry
