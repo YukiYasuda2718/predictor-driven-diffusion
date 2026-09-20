@@ -25,33 +25,33 @@ Score-Augmented Predictor-Driven Diffusion (SA-PDD) adds a second pointwise outp
 3. Select the kernel `Python (predictor-driven-diffusion)` when you run a notebook.
 
 From the repository root, scripts can be run as
-`PYTHONPATH="$PWD" poetry run python3 scripts/train_pdd_lorenz96.py --device cuda:0 --config_path "$PWD/configs/lorenz96_unet.yml"`.
+`PYTHONPATH="$PWD" poetry run python3 scripts/train_pdd_lorenz96.py --device cuda:0 --config_path "$PWD/configs/lorenz96_pdd.yml"`.
 In the Dev Container, the repository root is `/workspace`.
 
 ## Experiments: Lorenz96 system (PDD)
 
 1. `Reopen in Container`
 2. Run [`make_data_lorenz96.py`](./scripts/make_data_lorenz96.py) to make lorenz96 data: `$ python3 make_data_lorenz96.py`
-3. Run [`train_pdd_lorenz96.py`](./scripts/train_pdd_lorenz96.py) to train a diffusion model: `$ python3 train_pdd_lorenz96.py --device cuda:0 --config_path "$PWD/configs/lorenz96_unet.yml"`
+3. Run [`train_pdd_lorenz96.py`](./scripts/train_pdd_lorenz96.py) to train a diffusion model: `$ python3 train_pdd_lorenz96.py --device cuda:0 --config_path "$PWD/configs/lorenz96_pdd.yml"`
 4. Analyze the results by running [lorenz96.ipynb](./notebooks/lorenz96.ipynb)
 
 ## Experiments: Kolmogorov-flow system (PDD)
 
 1. `Reopen in Container`
 2. Run [`make_data_kolmogorov_flow.py`](./scripts/make_data_kolmogorov_flow.py) to make kolmogorov-flow data: `$ python3 make_data_kolmogorov_flow.py`
-3. Run [`train_pdd_kolmogorov_flow.py`](./scripts/train_pdd_kolmogorov_flow.py) to train a diffusion model: `$ python3 train_pdd_kolmogorov_flow.py --device cuda:0 --config_path "$PWD/configs/kolmogorov_flow_unet.yml"`
+3. Run [`train_pdd_kolmogorov_flow.py`](./scripts/train_pdd_kolmogorov_flow.py) to train a diffusion model: `$ python3 train_pdd_kolmogorov_flow.py --device cuda:0 --config_path "$PWD/configs/kolmogorov_flow_pdd.yml"`
 4. Analyze the results by running [kolmogorov_flow.ipynb](./notebooks/kolmogorov_flow.ipynb)
 
 ## Experiments: Lorenz96 system (SA-PDD)
 
 1. `Reopen in Container`
 2. Run [`make_data_lorenz96.py`](./scripts/make_data_lorenz96.py) to make lorenz96 data, or skip this step if the data already exist: `$ python3 make_data_lorenz96.py`
-3. Run [`train_sa_pdd_lorenz96.py`](./scripts/train_sa_pdd_lorenz96.py) to train a diffusion model: `$ python3 train_sa_pdd_lorenz96.py --device cuda:0 --config_path "$PWD/configs/lorenz96_sa_pdd_unet.yml"`
+3. Run [`train_sa_pdd_lorenz96.py`](./scripts/train_sa_pdd_lorenz96.py) to train a diffusion model: `$ python3 train_sa_pdd_lorenz96.py --device cuda:0 --config_path "$PWD/configs/lorenz96_sa_pdd.yml"`
 4. Analyze the results by running [lorenz96_sa_pdd.ipynb](./notebooks/lorenz96_sa_pdd.ipynb)
 
 ## Experiments: Kolmogorov-flow system (SA-PDD)
 
 1. `Reopen in Container`
 2. Run [`make_data_kolmogorov_flow.py`](./scripts/make_data_kolmogorov_flow.py) to make kolmogorov-flow data, or skip this step if the data already exist: `$ python3 make_data_kolmogorov_flow.py`
-3. Run [`train_sa_pdd_kolmogorov_flow.py`](./scripts/train_sa_pdd_kolmogorov_flow.py) to train a diffusion model: `$ python3 train_sa_pdd_kolmogorov_flow.py --device cuda:0 --config_path "$PWD/configs/kolmogorov_flow_sa_pdd_unet.yml"`
+3. Run [`train_sa_pdd_kolmogorov_flow.py`](./scripts/train_sa_pdd_kolmogorov_flow.py) to train a diffusion model: `$ python3 train_sa_pdd_kolmogorov_flow.py --device cuda:0 --config_path "$PWD/configs/kolmogorov_flow_sa_pdd.yml"`
 4. Analyze the results by running [kolmogorov_flow_sa_pdd.ipynb](./notebooks/kolmogorov_flow_sa_pdd.ipynb)
