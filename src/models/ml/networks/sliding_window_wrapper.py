@@ -1,5 +1,5 @@
 from logging import getLogger
-from typing import Optional
+from typing import Literal, Optional
 
 import torch
 import torch.nn as nn
@@ -44,21 +44,30 @@ class SlidingWindowWrapper(nn.Module):
         self,
         x: torch.Tensor,
         time: torch.Tensor,
+        output_head: Literal["default", "closure", "noise", "both"] = "default",
         cond: Optional[torch.Tensor] = None,
         diffusion_std: Optional[torch.Tensor] = None,
         **kwargs,
-    ) -> torch.Tensor:
+    ) -> torch.Tensor | dict[str, torch.Tensor]:
         x_windowed = self._sliding_window_stack(x)  # B, Cw, T, L (Cw = C * window_size)
 
         B, Cw, T, L = x_windowed.shape
-        C = Cw // self.window_size  # original channels
 
         y = self._permute_x(x_windowed)  # (B*T, Cw, L)
         t = self._broadcast_time(time, T)
 
-        y = self.model(x=y, time=t)  # (B*T, C, L)
+        y = self.model(x=y, time=t, output_head=output_head)  # (B*T, C, L)
 
-        y = y.view(B, T, C, L)
+        if isinstance(y, dict):
+            out: dict[str, torch.Tensor] = {}
+            for key, val in y.items():
+                C_out = val.shape[1]
+                val = val.view(B, T, C_out, L)
+                out[key] = val.permute(0, 2, 1, 3).contiguous()
+            return out
+
+        C_out = y.shape[1]
+        y = y.view(B, T, C_out, L)
         y = y.permute(0, 2, 1, 3)
 
         return y.contiguous()  # (B, C, T, L)
