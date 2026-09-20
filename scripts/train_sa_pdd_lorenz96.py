@@ -164,10 +164,7 @@ if __name__ == "__main__":
 
         config_name = os.path.basename(config_path).replace(".yml", "")
 
-        if "unet" in config_name:
-            config = Lorenz96SaPddUnetConfig.load(config_path)
-        else:
-            raise ValueError(f"Unknown config name: {config_name}")
+        config = Lorenz96SaPddUnetConfig.load(config_path)
         set_seeds(config.seed)
 
         result_dir = f"{DL_EXPERIMENT_DIR_PATH}/{config_name}"
