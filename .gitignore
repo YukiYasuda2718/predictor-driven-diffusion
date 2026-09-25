@@ -17,6 +17,9 @@ references
 log.txt
 tmp
 
+# for Cursor
+.cursorrules
+
 # Ignore other references
 ./references
 

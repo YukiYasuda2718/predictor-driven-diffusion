@@ -10,9 +10,11 @@ import torch
 
 from scripts.make_data_kolmogorov_flow import DT as dt
 from scripts.make_data_kolmogorov_flow import LX, LY, N_OUT_STEPS
-from src.configs.kolmogorov_flow_config import KolmogorovFlowUnetConfig
+from src.configs.kolmogorov_flow_sa_pdd_config import KolmogorovFlowSaPddUnetConfig
 from src.datasets.dataset_kolmogorov_flow import DatasetKolmogorovFlow
-from src.models.ml.diffusion.gaussian_diffusion import GaussianDiffusion
+from src.models.ml.diffusion.score_augmented_gaussian_diffusion import (
+    ScoreAugmentedGaussianDiffusion,
+)
 from src.models.ml.networks.sliding_window_wrapper import SlidingWindowWrapper
 from src.models.ml.networks.unet_2d import Unet2D
 from src.models.ml.score.score_kolmogorov_flow import ScoreKolmogorovFlow
@@ -41,7 +43,7 @@ parser.add_argument("--device", type=str, default="cuda:0")
 
 
 def make_dataset(
-    config: KolmogorovFlowUnetConfig,
+    config: KolmogorovFlowSaPddUnetConfig,
     root_dir: str,
     kind: Literal["train", "valid", "test"],
 ):
@@ -63,7 +65,7 @@ def make_dataset(
 
 
 def initialize_trainer(
-    config: KolmogorovFlowUnetConfig,
+    config: KolmogorovFlowSaPddUnetConfig,
     device: str,
     root_dir: str,
     result_dir: str,
@@ -72,7 +74,7 @@ def initialize_trainer(
 
     dataset = make_dataset(config, root_dir, kind)
 
-    if isinstance(config, KolmogorovFlowUnetConfig):
+    if isinstance(config, KolmogorovFlowSaPddUnetConfig):
         model = SlidingWindowWrapper(
             window_size=config.window_size,
             missing_value=config.missing_value,
@@ -88,6 +90,8 @@ def initialize_trainer(
                 time_base=config.time_base,
                 has_last_bias=True,
                 init_kernel_size=config.init_kernel_size,
+                head_mode="closure_and_noise",
+                num_head_blocks=config.num_head_blocks,
             ),
         )
     else:
@@ -109,7 +113,7 @@ def initialize_trainer(
         dtype=torch.float32,
     )
 
-    diffusion = GaussianDiffusion(
+    diffusion = ScoreAugmentedGaussianDiffusion(
         noise_estimate_fn=noise_estimate_fn.to(device),
         #
         channels=CHANNELS,
@@ -131,6 +135,8 @@ def initialize_trainer(
         spatial_dimension="2d",
         device=torch.device(device),
         dtype=torch.float32,
+        drift_loss_weight=config.drift_loss_weight,
+        score_loss_weight=config.score_loss_weight,
     )
 
     trainer = Trainer(
@@ -157,7 +163,7 @@ if __name__ == "__main__":
 
         config_name = os.path.basename(config_path).replace(".yml", "")
 
-        config = KolmogorovFlowUnetConfig.load(config_path)
+        config = KolmogorovFlowSaPddUnetConfig.load(config_path)
         set_seeds(config.seed)
 
         result_dir = f"{DL_EXPERIMENT_DIR_PATH}/{config_name}"

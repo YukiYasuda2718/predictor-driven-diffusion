@@ -41,10 +41,12 @@ class Unet2D(nn.Module):
         use_sparse_linear_attn: bool = True,
         time_base: float = 10000.0,
         has_last_bias: bool = True,
+        head_mode: Literal["single", "closure_and_noise"] = "single",
+        num_head_blocks: int = 0,
     ):
         super().__init__()
         logger.info(
-            f"UNet 2D: {dim=}\n{nx=}, {ny=}\n{padding_mode=},{dim_mults=}, {att_block_indices=}\n{in_channels=}, {out_channels=},\n{attn_heads=},\n{init_dim=}, {init_kernel_size=},\n{use_sparse_linear_attn=},\n{time_base=}, {has_last_bias=}\n"
+            f"UNet 2D: {dim=}\n{nx=}, {ny=}\n{padding_mode=},{dim_mults=}, {att_block_indices=}\n{in_channels=}, {out_channels=},\n{attn_heads=},\n{init_dim=}, {init_kernel_size=},\n{use_sparse_linear_attn=},\n{time_base=}, {has_last_bias=}\n{head_mode=}, {num_head_blocks=}"
         )
 
         self.nx, self.ny = nx, ny
@@ -54,6 +56,9 @@ class Unet2D(nn.Module):
         init_dim = default(init_dim, dim)
         assert isinstance(init_dim, int)
         assert is_odd(init_kernel_size), "init kernel size must be odd"
+        assert head_mode in ["single", "closure_and_noise"]
+        assert num_head_blocks >= 0
+        self.head_mode = head_mode
         init_padding = init_kernel_size // 2
         self.init_conv = nn.Conv2d(
             self.in_channels,
@@ -164,17 +169,35 @@ class Unet2D(nn.Module):
                 )
             )
 
-        self.final_conv = nn.Sequential(
-            block_class(dim * 2, dim, padding_mode=padding_mode),
-            nn.Conv2d(dim, self.out_channels, kernel_size=1, bias=has_last_bias),
-        )
+        if self.head_mode == "single":
+            self.final_conv = nn.Sequential(
+                block_class(dim * 2, dim, padding_mode=padding_mode),
+                nn.Conv2d(dim, self.out_channels, kernel_size=1, bias=has_last_bias),
+            )
+        else:
+            self.final_block = block_class(dim * 2, dim, padding_mode=padding_mode)
+
+            def make_head() -> nn.Sequential:
+                return nn.Sequential(
+                    *[
+                        block_class(dim, dim, padding_mode=padding_mode)
+                        for _ in range(num_head_blocks)
+                    ],
+                    nn.Conv2d(
+                        dim, self.out_channels, kernel_size=1, bias=has_last_bias
+                    ),
+                )
+
+            self.closure_head = make_head()
+            self.noise_head = make_head()
 
     def forward(
         self,
         x: torch.Tensor,
         time: torch.Tensor,
+        output_head: Literal["default", "closure", "noise", "both"] = "default",
         **kwargs: Optional[dict],
-    ) -> torch.Tensor:
+    ) -> torch.Tensor | dict[str, torch.Tensor]:
         # x shape = b c (ny * nx)
         # time shape = b
 
@@ -214,7 +237,34 @@ class Unet2D(nn.Module):
 
         x = torch.cat((x, r), dim=1)
 
-        y = self.final_conv(x)
-        assert y.shape == (b, self.out_channels, self.ny, self.nx)
+        if self.head_mode == "single":
+            if output_head in ["default", "closure"]:
+                y = self.final_conv(x)
+                assert y.shape == (b, self.out_channels, self.ny, self.nx)
+                return y.view(b, self.out_channels, self.ny * self.nx)
 
-        return y.view(b, self.out_channels, self.ny * self.nx)
+            raise ValueError(f"{output_head=} is not supported when {self.head_mode=}.")
+
+        y = self.final_block(x)
+
+        if output_head in ["default", "closure"]:
+            y = self.closure_head(y)
+            assert y.shape == (b, self.out_channels, self.ny, self.nx)
+            return y.view(b, self.out_channels, self.ny * self.nx)
+
+        if output_head == "noise":
+            y = self.noise_head(y)
+            assert y.shape == (b, self.out_channels, self.ny, self.nx)
+            return y.view(b, self.out_channels, self.ny * self.nx)
+
+        if output_head == "both":
+            y_c = self.closure_head(y)
+            y_n = self.noise_head(y)
+            assert y_c.shape == y_n.shape == (b, self.out_channels, self.ny, self.nx)
+
+            return {
+                "closure": y_c.view(b, self.out_channels, self.ny * self.nx),
+                "noise": y_n.view(b, self.out_channels, self.ny * self.nx),
+            }
+
+        raise ValueError(f"Unexpected {output_head=}.")

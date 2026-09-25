@@ -1,4 +1,5 @@
 import argparse
+import math
 import os
 import pathlib
 import time
@@ -8,29 +9,32 @@ from typing import Literal
 
 import torch
 
-from scripts.make_data_kolmogorov_flow import DT as dt
-from scripts.make_data_kolmogorov_flow import LX, LY, N_OUT_STEPS
-from src.configs.kolmogorov_flow_config import KolmogorovFlowUnetConfig
-from src.datasets.dataset_kolmogorov_flow import DatasetKolmogorovFlow
-from src.models.ml.diffusion.gaussian_diffusion import GaussianDiffusion
+from scripts.make_data_lorenz96 import dt, h, out_n_times, out_time_interval
+from src.configs.lorenz96_sa_pdd_config import Lorenz96SaPddUnetConfig
+from src.datasets.dataset_lorenz96 import DatasetLorenz96
+from src.models.ml.diffusion.score_augmented_gaussian_diffusion import (
+    ScoreAugmentedGaussianDiffusion,
+)
 from src.models.ml.networks.sliding_window_wrapper import SlidingWindowWrapper
-from src.models.ml.networks.unet_2d import Unet2D
-from src.models.ml.score.score_kolmogorov_flow import ScoreKolmogorovFlow
+from src.models.ml.networks.unet_1d import Unet1D
+from src.models.ml.score.score_lorenz96 import ScoreLorenz96
 from src.training.loss_logger import LossLogger
 from src.training.trainer import Trainer
 from src.util.random_seed_helper import set_seeds
 
-DT = N_OUT_STEPS * dt
-assert LX == LY
-L_SPACE = LX
-CHANNELS = 1
-del dt
+N_FRAMES = out_n_times
+BARE_DT = dt
+DT = dt * out_time_interval
+H = h
+CHANNELS = 2
+X_LENGTH = 2.0 * math.pi
+del dt, h, out_n_times, out_time_interval
 
 os.environ["CUBLAS_WORKSPACE_CONFIG"] = r":4096:8"  # to make calculations deterministic
 
 ROOT_DIR = pathlib.Path(os.environ["PYTHONPATH"].split(":")[0]).resolve()
 
-DL_EXPERIMENT_DIR_PATH = f"{ROOT_DIR}/data/DL_model/kolmogorov_flow"
+DL_EXPERIMENT_DIR_PATH = f"{ROOT_DIR}/data/DL_model/lorenz96"
 
 logger = getLogger()
 logger.setLevel(INFO)
@@ -41,65 +45,69 @@ parser.add_argument("--device", type=str, default="cuda:0")
 
 
 def make_dataset(
-    config: KolmogorovFlowUnetConfig,
+    config: Lorenz96SaPddUnetConfig,
     root_dir: str,
     kind: Literal["train", "valid", "test"],
 ):
     assert kind in ["train", "valid", "test"]
 
-    data_dir_path = f"{root_dir}/data/DL_data/{config.data_dir_name}"
-    logger.info(f"make_dataset: {kind=}, {data_dir_path=}")
+    _b = str(config.b).replace(".", "p")
+    _c = str(config.c).replace(".", "p")
+    _F = str(config.F).replace(".", "p")
+    _name = f"K{config.K:02}J{config.J:02}_b{_b}_c{_c}_F{_F}"
+    assert _name in config.data_file_name
 
-    return DatasetKolmogorovFlow(
-        data_dir_path=data_dir_path,
+    dl_data_file_path = (
+        f"{root_dir}/data/DL_data/{config.data_dir_name}/{config.data_file_name}"
+    )
+    logger.info(f"make_dataset: {kind=}, {dl_data_file_path=}")
+
+    return DatasetLorenz96(
+        path_to_dataarray=dl_data_file_path,
+        means=config.means,
+        stds=config.stds,
         min_data_idx=config.data_min_indices[kind],
         max_data_idx=config.data_max_indices[kind],
-        nt=config.nt,
-        ny=config.ny,
-        nx=config.nx,
-        mean=config.mean,
-        std=config.std,
     )
 
 
 def initialize_trainer(
-    config: KolmogorovFlowUnetConfig,
+    config: Lorenz96SaPddUnetConfig,
     device: str,
     root_dir: str,
     result_dir: str,
     kind: Literal["train", "valid", "test"],
 ):
 
-    dataset = make_dataset(config, root_dir, kind)
+    dataset = make_dataset(config, root_dir=root_dir, kind=kind)
 
-    if isinstance(config, KolmogorovFlowUnetConfig):
+    if isinstance(config, Lorenz96SaPddUnetConfig):
         model = SlidingWindowWrapper(
             window_size=config.window_size,
             missing_value=config.missing_value,
-            model=Unet2D(
+            model=Unet1D(
                 dim=config.dim,
-                nx=config.nx,
-                ny=config.ny,
                 padding_mode="circular",
                 in_channels=CHANNELS * config.window_size,
                 out_channels=CHANNELS,
                 dim_mults=tuple(config.dim_mults),
-                att_block_indices=tuple(config.att_block_indices),
+                att_block_indices=config.att_block_indices,
                 time_base=config.time_base,
                 has_last_bias=True,
-                init_kernel_size=config.init_kernel_size,
+                head_mode="closure_and_noise",
+                num_head_blocks=config.num_head_blocks,
             ),
         )
     else:
         raise ValueError(f"Unknown config type: {type(config)}")
 
-    noise_estimate_fn = ScoreKolmogorovFlow(
+    noise_estimate_fn = ScoreLorenz96(
         surrogate_model=model.to(device),
         #
-        mean=config.mean,
-        std=config.std,
+        mean=torch.tensor(config.means)[:, None, None],  # add time and space dims
+        std=torch.tensor(config.stds)[:, None, None],
         n_channels=CHANNELS,
-        n_spaces=int(config.ny * config.nx),
+        n_spaces=config.n_spaces,
         dt=DT,
         #
         use_ratio=config.use_ratio,
@@ -109,16 +117,13 @@ def initialize_trainer(
         dtype=torch.float32,
     )
 
-    diffusion = GaussianDiffusion(
+    diffusion = ScoreAugmentedGaussianDiffusion(
         noise_estimate_fn=noise_estimate_fn.to(device),
         #
         channels=CHANNELS,
-        num_frames=config.nt,
-        image_size=0,  # not used
-        #
-        image_size_x=config.nx,
-        image_size_y=config.ny,
-        x_length=L_SPACE,
+        num_frames=N_FRAMES,
+        image_size=config.n_spaces,
+        x_length=X_LENGTH,
         #
         num_timesteps=config.num_timesteps,
         laplacian_factor=config.laplacian_factor,
@@ -128,9 +133,11 @@ def initialize_trainer(
         std_ratio=config.std_ratio,
         noise_amplitude_squared=config.noise_amplitude_squared,
         #
-        spatial_dimension="2d",
+        spatial_dimension="1d",
         device=torch.device(device),
         dtype=torch.float32,
+        drift_loss_weight=config.drift_loss_weight,
+        score_loss_weight=config.score_loss_weight,
     )
 
     trainer = Trainer(
@@ -157,7 +164,7 @@ if __name__ == "__main__":
 
         config_name = os.path.basename(config_path).replace(".yml", "")
 
-        config = KolmogorovFlowUnetConfig.load(config_path)
+        config = Lorenz96SaPddUnetConfig.load(config_path)
         set_seeds(config.seed)
 
         result_dir = f"{DL_EXPERIMENT_DIR_PATH}/{config_name}"
