@@ -33,14 +33,14 @@ In the Dev Container, the repository root is `/workspace`.
 1. `Reopen in Container`
 2. Run [`make_data_lorenz96.py`](./scripts/make_data_lorenz96.py) to make lorenz96 data: `$ python3 scripts/make_data_lorenz96.py`
 3. Run [`train_pdd_lorenz96.py`](./scripts/train_pdd_lorenz96.py) to train a diffusion model: `$ python3 scripts/train_pdd_lorenz96.py --device cuda:0 --config_path "$PWD/configs/lorenz96_pdd.yml"`
-4. Analyze the results by running [lorenz96.ipynb](./notebooks/lorenz96.ipynb)
+4. Analyze the results by running [lorenz96_pdd.ipynb](./notebooks/lorenz96_pdd.ipynb)
 
 ## Experiments: Kolmogorov-flow system (PDD)
 
 1. `Reopen in Container`
 2. Run [`make_data_kolmogorov_flow.py`](./scripts/make_data_kolmogorov_flow.py) to make kolmogorov-flow data: `$ python3 scripts/make_data_kolmogorov_flow.py`
 3. Run [`train_pdd_kolmogorov_flow.py`](./scripts/train_pdd_kolmogorov_flow.py) to train a diffusion model: `$ python3 scripts/train_pdd_kolmogorov_flow.py --device cuda:0 --config_path "$PWD/configs/kolmogorov_flow_pdd.yml"`
-4. Analyze the results by running [kolmogorov_flow.ipynb](./notebooks/kolmogorov_flow.ipynb)
+4. Analyze the results by running [kolmogorov_flow_pdd.ipynb](./notebooks/kolmogorov_flow_pdd.ipynb)
 
 ## Experiments: Lorenz96 system (SA-PDD)
 
