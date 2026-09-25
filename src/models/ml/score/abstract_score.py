@@ -184,3 +184,35 @@ class ScoreFramework(torch.nn.Module, metaclass=abc.ABCMeta):
             return closure
         else:
             return closure * self.std / self.dt  # dimensionalized
+
+    def calc_noise(
+        self,
+        x_dimensionless: Tensor,
+        diffusion_time: Tensor,
+    ) -> Tensor:
+        n_batches, n_channels, n_times, n_spaces = x_dimensionless.shape
+        assert n_channels == self.n_channels
+        assert n_spaces == self.n_spaces
+
+        noise = self.closure(x_dimensionless, diffusion_time, output_head="noise")
+        assert noise.shape == (n_batches, n_channels, n_times, n_spaces)
+
+        return noise
+
+    def calc_closure_and_noise(
+        self,
+        x_dimensionless: Tensor,
+        diffusion_time: Tensor,
+    ) -> dict[str, Tensor]:
+        n_batches, n_channels, n_times, n_spaces = x_dimensionless.shape
+        assert n_channels == self.n_channels
+        assert n_spaces == self.n_spaces
+
+        outputs = self.closure(x_dimensionless, diffusion_time, output_head="both")
+        assert isinstance(outputs, dict)
+        closure = outputs["closure"]
+        noise = outputs["noise"]
+        assert closure.shape == (n_batches, n_channels, n_times, n_spaces)
+        assert noise.shape == (n_batches, n_channels, n_times, n_spaces)
+
+        return {"closure": closure, "noise": noise}

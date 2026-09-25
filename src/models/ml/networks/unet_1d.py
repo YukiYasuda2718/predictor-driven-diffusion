@@ -40,15 +40,20 @@ class Unet1D(nn.Module):
         use_sparse_linear_attn: bool = True,
         time_base: float = 10000.0,
         has_last_bias: bool = True,
+        head_mode: Literal["single", "closure_and_noise"] = "single",
+        num_head_blocks: int = 0,
     ):
         super().__init__()
         logger.info(
-            f"UNet 1D: {dim=}, {dim_mults=}, {att_block_indices=}\n{in_channels=}, {out_channels=}\n{attn_heads=}, {init_dim=}, {init_kernel_size=}\n{use_sparse_linear_attn=}\n{time_base=}\n{has_last_bias=}, {padding_mode=}"
+            f"UNet 1D: {dim=}, {dim_mults=}, {att_block_indices=}\n{in_channels=}, {out_channels=}\n{attn_heads=}, {init_dim=}, {init_kernel_size=}\n{use_sparse_linear_attn=}\n{time_base=}\n{has_last_bias=}, {padding_mode=}\n{head_mode=}, {num_head_blocks=}"
         )
 
         init_dim = default(init_dim, dim)
         assert isinstance(init_dim, int)
         assert is_odd(init_kernel_size), "init kernel size must be odd"
+        assert head_mode in ["single", "closure_and_noise"]
+        assert num_head_blocks >= 0
+        self.head_mode = head_mode
         init_padding = init_kernel_size // 2
         self.init_conv = nn.Conv1d(
             in_channels,
@@ -159,17 +164,33 @@ class Unet1D(nn.Module):
                 )
             )
 
-        self.final_conv = nn.Sequential(
-            block_class(dim * 2, dim, padding_mode=padding_mode),
-            nn.Conv1d(dim, out_channels, kernel_size=1, bias=has_last_bias),
-        )
+        if self.head_mode == "single":
+            self.final_conv = nn.Sequential(
+                block_class(dim * 2, dim, padding_mode=padding_mode),
+                nn.Conv1d(dim, out_channels, kernel_size=1, bias=has_last_bias),
+            )
+        else:
+            self.final_block = block_class(dim * 2, dim, padding_mode=padding_mode)
+
+            def make_head() -> nn.Sequential:
+                return nn.Sequential(
+                    *[
+                        block_class(dim, dim, padding_mode=padding_mode)
+                        for _ in range(num_head_blocks)
+                    ],
+                    nn.Conv1d(dim, out_channels, kernel_size=1, bias=has_last_bias),
+                )
+
+            self.closure_head = make_head()
+            self.noise_head = make_head()
 
     def forward(
         self,
         x: torch.Tensor,
         time: torch.Tensor,
+        output_head: Literal["default", "closure", "noise", "both"] = "default",
         **kwargs: Optional[dict],
-    ) -> torch.Tensor:
+    ) -> torch.Tensor | dict[str, torch.Tensor]:
         # x shape = b c h
         # time shape = b
 
@@ -203,4 +224,18 @@ class Unet1D(nn.Module):
 
         x = torch.cat((x, r), dim=1)
 
-        return self.final_conv(x)
+        if self.head_mode == "single":
+            if output_head in ["default", "closure"]:
+                return self.final_conv(x)
+            raise ValueError(f"{output_head=} is not supported when {self.head_mode=}.")
+
+        x = self.final_block(x)
+
+        if output_head in ["default", "closure"]:
+            return self.closure_head(x)
+        if output_head == "noise":
+            return self.noise_head(x)
+        if output_head == "both":
+            return {"closure": self.closure_head(x), "noise": self.noise_head(x)}
+
+        raise ValueError(f"Unexpected {output_head=}.")
